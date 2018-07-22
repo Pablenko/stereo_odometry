@@ -1,5 +1,6 @@
-from os import listdir
-from os.path import isfile, isdir, join
+from collections import namedtuple
+from common.file_operations import parse_file
+from sys import maxint
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -8,15 +9,10 @@ import numpy as np
 ROWS = 3
 COLS = 4
 STEP_SIZE = 10
+MAX_INT = maxint
+MIN_INT = -maxint - 1
 
-
-def files(poses_path):
-    if isdir(poses_path):
-        f_list = [join(poses_path, f) for f in listdir(poses_path) if isfile(join(poses_path, f))]
-        f_list.sort()
-        return f_list
-    else:
-        raise ValueError("Improper kitti poses path: " + poses_path)
+axes_range = namedtuple('axes_range', 'x_min, x_max, y_min, y_max')
 
 
 def get_floats(string):
@@ -30,14 +26,31 @@ def create_matrix(f_array, n_rows, n_cols):
     return np.matrix([col for col in chunks()])
 
 
-def parse_poses_file(file_path):
-    with open(file_path, "r") as file:
-        for line in file:
-            yield create_matrix(get_floats(line), ROWS, COLS)
-
-
 def calculate_plot_axes(poses):
-    return -400, 400, -100, 700
+    x_min = MAX_INT
+    y_min = MAX_INT
+    x_max = MIN_INT
+    y_max = MIN_INT
+
+    for m in poses:
+        x = m.item(0, 3)
+        y = m.item(2, 3)
+
+        if x > x_max:
+            x_max = x
+        if x < x_min:
+            x_min = x
+        if y > y_max:
+            y_max = y
+        if y < y_min:
+            y_min = y
+
+    x_min *= 1.2
+    x_max *= 1.2
+    y_min *= 1.2
+    y_max *= 1.2
+
+    return axes_range(x_min, x_max, y_min, y_max)
 
 
 def transform_poses_to_2d_plane(poses):
@@ -52,21 +65,19 @@ def transform_poses_to_2d_plane(poses):
     return x, y
 
 
-def plot_path(x_min, x_max, y_min, y_max, poses_arr):
-    axes = plt.gca()
-    axes.set_xlim([x_min, x_max])
-    axes.set_ylim([y_min, y_max])
-
+def plot_vehicle_path(x_min, x_max, y_min, y_max, poses_arr):
     for p in poses_arr:
         x, y = transform_poses_to_2d_plane(p)
+        axes_sizing = calculate_plot_axes(p)
+        axes = plt.gca()
+        axes.set_xlim([axes_sizing.x_min, axes_sizing.x_max])
+        axes.set_ylim([axes_sizing.y_min, axes_sizing.y_max])
+
         plt.plot(x, y)
+        plt.show()
 
-    plt.show()
 
-
-def plot_kitti(poses_path):
-    files_list = files(poses_path[0])
-    for f in files_list[0:1]:
-        test_data_poses = [x for x in parse_poses_file(f)]
-        x_min, x_max, y_min, y_max = calculate_plot_axes(test_data_poses)
-        plot_path(x_min, x_max, y_min, y_max, [test_data_poses])
+def plot_kitti(pose_file_location):
+    test_data_poses = [create_matrix(get_floats(line), ROWS, COLS) for line in parse_file(pose_file_location)]
+    axes_pos = calculate_plot_axes(test_data_poses)
+    plot_vehicle_path(axes_pos.x_min, axes_pos.x_max, axes_pos.y_min, axes_pos.y_max, [test_data_poses])
