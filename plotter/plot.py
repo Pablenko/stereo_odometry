@@ -65,19 +65,45 @@ def transform_poses_to_2d_plane(poses):
     return x, y
 
 
-def plot_vehicle_path(x_min, x_max, y_min, y_max, poses_arr):
-    for p in poses_arr:
-        x, y = transform_poses_to_2d_plane(p)
-        axes_sizing = calculate_plot_axes(p)
-        axes = plt.gca()
-        axes.set_xlim([axes_sizing.x_min, axes_sizing.x_max])
-        axes.set_ylim([axes_sizing.y_min, axes_sizing.y_max])
+def transform_translations_to_2d_plane(translations):
+    x = np.zeros(len(translations))
+    y = np.zeros(len(translations))
 
-        plt.plot(x, y)
-        plt.show()
+    for i, tr in enumerate(translations):
+        x[i] = tr[0]
+        y[i] = tr[2]
+
+    return x, y
 
 
-def plot_kitti(pose_file_location):
-    test_data_poses = [create_matrix(get_floats(line), ROWS, COLS) for line in parse_file(pose_file_location)]
-    axes_pos = calculate_plot_axes(test_data_poses)
-    plot_vehicle_path(axes_pos.x_min, axes_pos.x_max, axes_pos.y_min, axes_pos.y_max, [test_data_poses])
+def plot_vehicle_path(x_min, x_max, y_min, y_max, translations, poses):
+    p_x, p_y = transform_poses_to_2d_plane(poses)
+    axes_sizing = calculate_plot_axes(poses)
+
+    tr_x, tr_y = transform_translations_to_2d_plane(translations)
+
+    axes = plt.gca()
+    axes.set_xlim([axes_sizing.x_min, axes_sizing.x_max])
+    axes.set_ylim([axes_sizing.y_min, axes_sizing.y_max])
+
+    plt.plot(p_x, p_y)
+    plt.plot(tr_x, tr_y)
+    plt.show()
+
+
+def parse_ground_truth_poses(file_path):
+    return [create_matrix(get_floats(line), ROWS, COLS) for line in parse_file(file_path)]
+
+
+def plot_against_kitti(translations, ground_truth_poses):
+    axes_pos = calculate_plot_axes(ground_truth_poses)
+    plot_vehicle_path(axes_pos.x_min, axes_pos.x_max, axes_pos.y_min, axes_pos.y_max, translations, ground_truth_poses)
+
+
+def report_errors(errors, max_error):
+    print 'Translation erros (against ground truth poses):'
+
+    for i, e in enumerate(errors):
+        print 'Num: ' + str(i+1) + ', error: ' + str(e)
+
+    print 'Maximal error: ' + str(max_error)
